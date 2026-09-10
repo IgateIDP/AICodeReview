@@ -1,0 +1,6 @@
+{
+  "scope": "x_rptp_ai_code_rev",
+  "scopeId": "68e08f6c471b4bd0e9ddbf66706d4379",
+  "name": "AI Code Reviewer",
+  "tsconfigPath": "./src/server/tsconfig.json"
+}
