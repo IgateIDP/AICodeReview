@@ -1,165 +1,256 @@
-# GenAI Code Review — Step-by-Step Implementation Plan
+# GenAI Code Review — Implementation Plan & Resume State
 
-> Companion to `genai-code-review-skill-scope.md`. That doc defines **what** we're
-> building and **why**; this doc defines the **order of work**. Status: **PLAN ONLY —
-> nothing built yet.**
-
-## Architecture recap (target)
-
-```
-App sys_id
-   │
-   ▼
-[Enumerator]  sys_metadata where sys_scope = app  → list of {type, sys_id}
-   │
-   ▼
-[Router]      deterministic switch on sys_class_name
-   ├── scripts        → Script Reviewer Skill
-   ├── sys_ui_page    → UI Page Reviewer Skill
-   ├── sys_ws_operation → Scripted REST Reviewer Skill
-   ├── flows/actions  → Flow / Action Reviewer Skill
-   └── table dict     → Table Design Reviewer Skill
-   │
-   ▼
-[Aggregator]  persist assessments in a results table, tagged by application
-```
-
-- Reviewer **Skills** = the AI engines (one artifact per invocation).
-- **Orchestrator** (Flow *recommended*, or AI Agent) = enumerate → route → loop → store.
+> **READ THIS FIRST.** This document is the single source of truth for project state.
+> It is written to be self-sufficient: assume no memory of prior conversations.
+> Companions: `genai-code-review-skill-scope.md` (what & why), `TestResult.md` (48 test cases,
+> all findings and evidence).
+>
+> **Last updated:** end of Phase 3c. **Next up: Phase 4 (Orchestrator Flow).**
 
 ---
 
-## Phase 0 — Decisions & Prerequisites  *(gate — must clear before Phase 1)*
+# 1. RESUME HERE — Current State at a Glance
 
-**Decisions required from the product owner:**
-1. **Home app** — separate new app (**requires a new conversation**) or build inside `x_rptp_ai_code_rev`.
-2. **v1 artifact scope** — recommended: start with the easy wins (**Scripts, Scripted REST, UI Pages**); add Flows/Actions and Tables in v2.
-3. **LLM provider/model** — chosen from the instance's approved provider list (queried at build time).
-4. **Security** — (a) who can invoke each skill (all authenticated vs specific roles); (b) execution role.
-5. **Deployment surface** — UI Action, ServiceNow Otto Panel, Flow Action, or test-only.
-6. **Orchestrator type** — Flow/Subflow (deterministic, recommended) or AI Agent (agentic).
-
-**Prerequisite checks:**
-- [ ] `is_product_available` (`primeSKU`) confirms Otto for App Engine / AI Platform Prime.
-- [ ] Fluent SDK ≥ 4.6.0 (instance on 4.11.2 ✅).
-
-**Deliverable:** decisions recorded in the scope doc; licensing confirmed.
-
----
-
-## Phase 1 — Foundation
-
-**Goal:** the data and lookup plumbing the reviewers/orchestrator depend on.
-
-1. **Results storage table** (e.g., `x_...review_finding`): application (ref/scope), artifact type, source table, source record, severity, issue summary, remediation, raw assessment, run/batch id, created timestamp. Enables per-application rollups (mirrors `scan_finding` grouping by package).
-2. **Enumerator** — a Script tool / subflow that queries `sys_metadata` where `sys_scope = <app sys_id>`, returns `{sys_class_name, sys_id, name}`, filtered to supported types.
-3. Seed a small set of **real test records** for development.
-
-**Deliverable:** results table installed; enumerator returns an app's artifact list.
-
----
-
-## Phase 2 — First Reviewer Skill (Script Reviewer)  *(prove the pattern)*
-
-**Goal:** one working end-to-end reviewer for the simplest artifact family.
-
-1. Follow the GenAI Skill workflow (licensing gate → provider → table field questions → security → deployment).
-2. **Inputs:** artifact `sys_id` + `source_table` as **strings** (so a tool can query them).
-3. **Script tool** `gatherScript` — reads the record, returns `{name, table, script, when/type}`.
-4. **Prompt** (Role / Context / Instructions / Output) encoding the rubric: hardcoding, query efficiency, logging, `eval`, error handling, scope-safe APIs; return severity-ranked issues + remediation.
-5. `testValues` from a real business-rule/script-include record.
-6. Build → install → test in Skill Builder → **publish & activate**.
-
-**Deliverable:** Script Reviewer Skill returns a structured review for one script record.
-
----
-
-## Phase 3 — Remaining Reviewer Skills
-
-Repeat the Phase 2 pattern per type (each: gather tool + tailored prompt/rubric):
-
-1. **UI Page Reviewer** — gather `html` (Jelly) + `client_script` + `processing_script`; check ACL presence, inline secrets, DOM usage, accessibility.
-2. **Scripted REST Reviewer** — gather `sys_ws_operation.operation_script` + method/path; check input validation, status codes, data exposure.
-3. **Flow / Action Reviewer** *(v2 — most effort)* — Script tool serializes `sys_hub_flow` / `sys_hub_flow_logic` / step inputs (`sys_variable_value` where `document=sys_hub_step_instance`) into text; check hardcoded step inputs, inline scripts, naming/annotations, error handling.
-4. **Table Design Reviewer** *(v2)* — gather `sys_dictionary` + ACL coverage; check naming/prefix, base extension, field types, hardcoded choices.
-
-**Deliverable:** one reviewer skill per in-scope artifact type, all published.
-
----
-
-## Phase 4 — Orchestrator
-
-**Goal:** turn "app sys_id" into a full, looped review.
-
-**Recommended: Flow / Subflow**
-1. Input: application sys_id.
-2. Call **Enumerator** → artifact list.
-3. **Deterministic route** on `sys_class_name` → invoke the matching reviewer skill per artifact.
-4. Write each assessment to the **results table**, tagged by application + batch id.
-5. Run **async/scheduled** for large apps (cost + time).
-
-**Alternative: AI Agent** — same tools (reviewer skills + enumerator) with the agent reasoning over the loop, if an agentic UX is preferred.
-
-**Deliverable:** one call/trigger reviews an entire application and stores results.
-
----
-
-## Phase 5 — Trigger & Surfacing
-
-1. **Entry point** — UI Action on the application record ("Run AI Code Review") and/or on-demand form.
-2. **Optional findings-driven mode** — seed the loop from Instance Scan `scan_finding` source records (for the app) instead of full enumeration, to focus and cut cost.
-
-**Deliverable:** users can launch a review for an application from the UI.
-
----
-
-## Phase 6 — Aggregation & Reporting
-
-1. **Per-application list/view** over the results table (group by application, severity, artifact type).
-2. Optional dashboard/report mirroring the Instance Scan per-package rollup.
-
-**Deliverable:** readable per-application review results.
-
----
-
-## Phase 7 — Test & Harden
-
-1. Validate each reviewer against known-good and known-bad artifacts.
-2. Noise control (skip OOB/baseline records; allow suppression).
-3. Cost/throughput controls (batch size, async scheduling, artifact-size truncation/chunking).
-4. Security review of invoke/execution roles.
-
-**Deliverable:** reliable, cost-aware, production-ready reviewer.
-
----
-
-## Suggested sequencing
-
-| Milestone | Phases | Outcome |
-|-----------|--------|---------|
-| **M1 – Walking skeleton** | 0 → 1 → 2 | One skill reviews one script end-to-end |
-| **M2 – v1 coverage** | 3 (scripts, REST, UI pages) | Easy-win artifact types covered |
-| **M3 – App-wide** | 4 → 5 → 6 | "Review this application" works + results surfaced |
-| **M4 – v2 + hardening** | 3 (flows, tables) → 7 | Full coverage, production-ready |
-
-## Phase 0 Decisions — CONFIRMED
-
-| # | Decision | Value |
+| Phase | Scope | Status |
 |---|---|---|
-| 1 | Home app | Build in `x_rptp_ai_code_rev` (this app) |
-| 2 | v1 artifact scope | Scripts (Business Rules, Script Includes, Client Scripts, UI Actions), Scripted REST, UI Pages |
-| 3 | LLM provider | ServiceNow default (Now LLM Service) — reconfirmed against the approved list at skill-build time (Phase 2) |
-| 4 | Security | `admin` role for both invoke and execution |
-| 5 | Deployment surface | Reviewer skills exposed as **Flow Actions**; invoked by the orchestrator Flow (no UI Action / Panel) |
-| 6 | Orchestrator | Deterministic **Flow** (route by `sys_class_name`) |
+| 1 — Foundation | Results tables, artifact enumerator, cross-scope privileges | ✅ **Complete** |
+| 2 — Script Reviewer | `Script Code Reviewer` GenAI Skill + gatherer | ✅ **Complete, live** |
+| 3a — Scripted REST | Folded into Script Code Reviewer | ✅ **Complete, live** |
+| 3b — Widget Reviewer + UI Pages | New widget skill; UI Pages folded in | ✅ **Complete, live** |
+| 3c — Pre-scan + size tiers | Closed Finding E (truncation false negatives) | ✅ **Complete, live** |
+| **4 — Orchestrator Flow** | App sys_id → enumerate → route → review → persist | ✅ **Complete** (sync path; validated on AssetFlow + Novel Jewels) |
+| 5 — Async + surfacing | Queue + scheduled-job worker (✅); app menu (✅); reports removed — sync-hostile, use UI (Finding G); findings-driven mode (open) | ✅ **Core complete** — async queue + Code Review Worker live; validated on AssetFlow |
+| 6 — Reporting | Per-application views | Not started |
+| 7 — Hardening | Noise, cost, security review | Not started |
 
-**Licensing:** `is_product_available(primeSKU)` confirmed — GenAI Skills/Agents available.
+**Both skills are published, activated (including AI Admin Hub), and confirmed working end to end.**
+Source and instance are in sync as of the last metadata sync.
 
-## Phase 1 build (this phase)
+---
 
-> Table names are capped at 30 chars including the `x_rptp_ai_code_rev_` prefix (19 chars),
-> so names are kept short.
+# 2. Environment & Key Identifiers
 
-- **`x_rptp_ai_code_rev_review_run`** — parent run record (one per application review execution).
-- **`x_rptp_ai_code_rev_finding`** — child finding record (one per issue), references the run + application for per-app rollups.
-- **`CodeReviewArtifactCollector`** Script Include — enumerates supported artifacts owned by an app scope and returns each with a reviewer routing key (`script` / `scripted_rest` / `ui_page`).
+| Item | Value |
+|---|---|
+| Instance | `ven06798.service-now.com` |
+| App | AI Code Reviewer |
+| Scope | `x_rptp_ai_code_rev` |
+| Scope sys_id | `68e08f6c471b4bd0e9ddbf66706d4379` |
+| Fluent SDK | 4.11.2 |
+
+## Installed components
+
+| Component | Type |
+|---|---|
+| `x_rptp_ai_code_rev_review_run` | Table — one row per review execution |
+| `x_rptp_ai_code_rev_finding` | Table — one row per issue |
+| `CodeReviewArtifactCollector` | Script Include — enumerates app artifacts + routing key |
+| `CodeReviewScriptGatherer` | Script Include — script/REST/UI-Page code + context |
+| `CodeReviewWidgetGatherer` | Script Include — widget's 6 surfaces, per-surface caps |
+| `CodeReviewPreScanner` | Script Include — full-text marker scan + size tiers |
+| 7 read + 1 execute | Cross-scope privileges |
+
+## Skill identifiers (needed for Phase 4)
+
+**Script Code Reviewer** — handles `sys_script`, `sys_script_include`, `sys_script_client`,
+`sys_ui_action`, `sys_ws_operation`, `sys_ui_page`
+- capability: `b12d93172c9a43d49721189a636d1bb5`
+- skill config: `3dcf71594ef848398143dcbb6a4e12a6`
+- capability definition: `807eef541ac54cc782a482d2d67d0cb7`
+- **live prompt: v4** (v1–v3 archived)
+- inputs: `sourceTable` (string), `artifactSysId` (string)
+
+**Service Portal Widget Reviewer** — handles `sp_widget`
+- capability: `0aff547e60f141b387a11d3f0262cb4d`
+- skill config: `c57deff0686f4a9cb889f239c3005282`
+- **live prompt: v1**
+- input: `widgetSysId` (string)
+
+**Both skills:** provider `Now LLM Service` / model `llm_generic_large_v2`, temp 0.2, maxTokens 4000,
+`userAccess` roles `['admin']`, `roleMap: ['admin']`, `deploymentSettings: { flowAction: true }`.
+Provider is switchable post-deployment in Skill Builder → "Choose default provider".
+
+## Reviewer routing (from `CodeReviewArtifactCollector.getTypeMap()`)
+
+| Table | routing key | Reviewer |
+|---|---|---|
+| `sys_script`, `sys_script_include`, `sys_script_client`, `sys_ui_action`, `sys_ws_operation`, `sys_ui_page` | `script` | Script Code Reviewer |
+| `sp_widget` | `sp_widget` | Service Portal Widget Reviewer |
+
+## Reviewer JSON output contract (both skills, identical)
+
+```json
+{
+  "artifact": "name",
+  "artifact_type": "Business Rule",
+  "overall_assessment": "1-2 sentences",
+  "findings": [
+    { "severity": "critical|high|moderate|low",
+      "category": "hardcoding|security|performance|maintainability|best_practice",
+      "issue": "...", "recommendation": "...", "line_reference": "..." }
+  ]
+}
+```
+Maps 1:1 to `x_rptp_ai_code_rev_finding` columns — deliberate, so Phase 4 persistence is trivial.
+
+---
+
+# 3. Test Corpus (verified, real applications)
+
+| Application | sys_id | Artifacts | Use for |
+|---|---|---|---|
+| **AssetFlow Portfolio Hub** | `693d05ee47708b50e9ddbf66706d43a8` | 5 (incl. 2 UI Pages) | **Best first smoke test — smallest** |
+| **Novel Jewels** | `e33bd60eff20fa5019a8ffda7c4fd925` | 33 (4 script + 29 widgets) | Widget reviewer |
+| **LOS – Loan Origination** | `d29c118aff2dc61019a8ffda7c4fd954` | **112** (35 script + 77 widgets) | Full-scale / cost test |
+
+## Known-good individual test artifacts
+
+| Artifact | Table | sys_id | Why useful |
+|---|---|---|---|
+| `Create record in gupshup` | `sys_script` | `8c1c5f2647d68650e9ddbf66706d4318` | `Math.random()` OTP, hardcoded `+91`, cross-scope table, `current.update()` in after rule |
+| `getAadhar` | `sys_ws_operation` | `ca7cb01947eaa650e9ddbf66706d4390` | **Best adversarial case** — hardcoded creds `setBasicAuth('rahul.dhir','Potala1$%')`, `requires_authentication=0`, OTP returned in response, Aadhaar PII logged |
+| `Novel List Filter` | `sp_widget` | `fd02a39eff20be5019a8ffda7c4fd961` | Oversized (59,557 chars) — exercises truncation + pre-scan hidden markers |
+| `Novel Form` | `sp_widget` | `465fb50147f0b610e9ddbf66706d434e` | Genuine hardcoded sys_id |
+| `Start with sparkle` | `sp_widget` | `ae29438e47e43650e9ddbf66706d43ca` | Hardcoded sys_id in `$sp.getParameter()` |
+
+---
+
+# 4. PLATFORM LEARNINGS — read before touching skills
+
+These cost significant time to discover. Do not re-learn them.
+
+### 4.1 GenAI Skill lifecycle has FOUR stages
+1. **Define + install** (Fluent source) — creates skill, capability, prompt records
+2. **Publish prompt** (Skill Builder) — `sys_generative_ai_config.state = published`
+3. **Activate skill** (Skill Builder) — `sys_one_extend_capability.active = 1`
+4. **Activate in AI Admin Hub** — sets `sn_nowassist_skill_config.active`; dialog asks
+   **"Flow Action Display = true/false"**
+
+Stages 1–3 alone leave `sn_nowassist_skill_config.active = null`. Do not mistake an active
+*capability* for an activated *skill*.
+
+### 4.2 Flow access is via the generic "Execute Skill" action
+`deploymentSettings: { flowAction: true }` does **NOT** create a per-skill
+`sys_hub_action_type_definition`. Instead, once activated with Flow Action Display enabled, the skill
+becomes selectable inside the **OOB generic "Execute Skill" flow action**. Searching for a Flow
+Action named after the skill will always return zero — this wasted three rounds of investigation.
+
+The AI Admin Hub "Display" column may read *"ServiceNow Otto context menu"*; that is the interactive
+surface and is unrelated to flow availability.
+
+### 4.3 Metadata sync is mandatory after any UI-side change
+After publishing a prompt, activating a skill, or AI Admin Hub activation, **run the IDE metadata
+sync before the next build/install** — otherwise the install can revert the published state. The
+install tool will hard-block with "metadata sync is required" when out of step.
+
+### 4.4 `promptState` must stay `'draft'` in source
+Fluent validation rule **P1**. Never set `'published'` in source — the build fails. Publishing is a
+Skill Builder action; the sync writes the resulting `state` (and a skill-level `state: 'published'`)
+back into source.
+
+### 4.5 Edit unpublished draft prompt versions in place
+If the target version is still `draft`, modify it directly rather than adding a new version. Avoids
+version sprawl and extra publish/sync cycles. Only add a new version when the current one is
+already published.
+
+### 4.6 Script field names are NOT uniform
+| Table | Code column |
+|---|---|
+| `sys_script`, `sys_script_include`, `sys_script_client`, `sys_ui_action` | `script` |
+| `sys_ws_operation` | **`operation_script`** |
+| `sys_ui_page` | **`html`** + `client_script` + `processing_script` |
+| `sp_widget` | `script`, `client_script`, `template`, `css`, `link`, `option_schema` |
+
+Assuming `script` on `sys_ws_operation` produced a **silent empty result** — the worst failure mode
+for a reviewer. Always verify column names from the dictionary first.
+
+### 4.7 Tooling gotchas
+- **`run_query` truncates** results with no pagination. For complete enumeration (e.g. provider
+  mappings: 10 shown of 25) use `run_script`.
+- **`GlideAggregate.groupBy('sys_scope')`** on a metadata table returns **zero rows silently**
+  (`sys_scope` is inherited from `sys_metadata`). Use a plain GlideRecord loop and tally.
+- **`fs_grep`'s `path` must be a directory**, not a file, or it silently finds nothing.
+- **Never concatenate code surfaces in a profiling regex**, and always use word boundaries — doing
+  so manufactured a false-positive "hidden sys_id" that was treated as evidence (see Finding E).
+
+### 4.8 Widget size reality
+Widgets reach 40–65 KB across six surfaces. Per-surface caps (server 10K, client 10K, template 8K,
+CSS 4K, link 3K, options 3K ≈ 38 KB) plus `CodeReviewPreScanner` handle this. Size tiers:
+`normal ≤45K` · `oversized 45–120K` (partial review) · `skipped >120K` (no LLM call, signals only).
+Nothing is ever silently dropped — a skip becomes a visible finding.
+
+---
+
+# 5. Open Findings
+
+| ID | Summary | Status |
+|---|---|---|
+| **A** | Flow Action mechanism | ✅ **CLOSED** — generic "Execute Skill" action (§4.2) |
+| **B** | `sys_ui_page` selects all columns at query time; platform-driven, not our code | 🔸 Open, low impact (UI Page counts are small) |
+| **C** | `GlideRecordSecure` cross-scope privilege | ✅ Closed — declared in source |
+| **D** | Skill `state` IS expressible in Fluent | ✅ Closed — corrected |
+| **E** | Truncation caused false negatives | ✅ **CLOSED** — pre-scanner recovers hidden markers; its original sys_id example was a false positive of our own profiling script |
+| **F** | LOS is 112 artifacts, not 35 (77 widgets were invisible until `sp_widget` was added to the type map) | 🔸 Open — cost/runtime recalibration for Phase 4 |
+
+---
+
+# 6. PHASE 4 — Orchestrator Flow (NEXT)
+
+**Goal:** one call with an application sys_id produces a complete, persisted, per-application review.
+
+## Target design
+
+```
+Flow input: application (sys_scope reference)
+   │
+   ├─1─ Create x_rptp_ai_code_rev_review_run  (status=running, started=now)
+   │
+   ├─2─ Script step → CodeReviewArtifactCollector.getArtifacts(appSysId)
+   │       returns [{ source_table, sys_id, name, reviewer_type }]
+   │
+   ├─3─ FOR EACH artifact (respecting a batch limit):
+   │       reviewer_type == 'script'     → Execute Skill → Script Code Reviewer
+   │                                        inputs: sourceTable, artifactSysId
+   │       reviewer_type == 'sp_widget'  → Execute Skill → SP Widget Reviewer
+   │                                        input: widgetSysId
+   │       → parse JSON response → insert x_rptp_ai_code_rev_finding rows
+   │
+   └─4─ Update run record (status=complete, finished, artifact_count, finding_count, summary)
+```
+
+## Steps
+
+1. **Locate the OOB "Execute Skill" flow action** and document its exact input/output contract
+   (how the skill is selected, how inputs are passed, response shape). Needed before authoring.
+2. **Read Fluent flow docs** — `wfa-flow-guide`, plus trigger / logic / actions topics.
+3. **Create `CodeReviewFindingWriter` Script Include** — parse reviewer JSON, validate `severity`
+   and `category` against the table's choice values, insert findings, update run totals. Keep parsing
+   out of the Flow so it is unit-testable. Must tolerate malformed/non-JSON LLM output gracefully.
+4. **Author the orchestrator Flow** in Fluent per the design above, including a **batch limit input**
+   (default e.g. 25) and **async/scheduled execution** — a full LOS run is ~112 LLM calls.
+5. **Test incrementally:** AssetFlow (5 artifacts) → Novel Jewels (33) → LOS (112) only once stable.
+6. **Verify per-application reporting** by grouping findings, then update all three docs.
+
+## Design decisions already made
+- Routing is **deterministic** (switch on `reviewer_type`), not AI-driven — the mapping is known, so
+  paying an LLM to decide it would be slower, costlier and less reliable.
+- **One artifact per skill invocation** — context limits, precise attribution, failure isolation.
+- Findings JSON deliberately mirrors the finding table, so persistence needs no transformation.
+
+## Open questions for Phase 4
+- **Trigger:** on-demand only, or also scheduled? (Phase 5 covers surfacing.)
+- **Findings-driven mode:** optionally seed the loop from Instance Scan `scan_finding` source records
+  instead of full enumeration, to cut ~112 calls down to only flagged artifacts.
+- **Re-run behaviour:** supersede prior findings for the same app, or keep full history per run?
+
+---
+
+# 7. Immediate next actions (tomorrow)
+
+1. Confirm nothing changed on the instance overnight; run a metadata sync if any Skill Builder or
+   AI Admin Hub change was made since the last sync.
+2. Start **Phase 4 step 1** — inspect the OOB "Execute Skill" flow action contract.
+3. Proceed through Phase 4 steps 2–6.
+
+**Nothing is currently broken or half-finished.** All source is built, installed, and in sync; both
+skills are live and verified. Phase 4 is a clean start.

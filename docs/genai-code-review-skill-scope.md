@@ -41,6 +41,29 @@ as text and how much assembly it needs.
 **Verdict:** Fully feasible for scripts, scripted REST, and UI pages. Tables become a
 *design* review. Flows/actions are feasible but need a dedicated serialization step.
 
+### Design decision — Scripted REST folded into the Script Reviewer
+
+Scripted REST is **not** a separate reviewer skill. Its logic lives in a plain script column, so
+only the *rubric* differs (HTTP status codes, authentication flags, data exposure) — not the
+gathering approach. It is therefore handled by the **Script Code Reviewer**, reducing v1 from
+three reviewer skills to two.
+
+Two implementation details this required:
+- The script column is **not uniform**: `sys_ws_operation` stores code in `operation_script`,
+  while the other script tables use `script`. The gatherer now carries a per-table `scriptField`.
+- `sys_ws_operation` has **no `description`** column; it uses `short_description`. The gatherer
+  resolves the first valid field from `description` / `short_description` / `comments` instead of
+  assuming a single name.
+
+**Resulting reviewer skills (4, not 5):**
+
+| Skill | Covers |
+|---|---|
+| **Script Code Reviewer** | Business Rules, Script Includes, Client Scripts, UI Actions, **Scripted REST** |
+| UI Page Reviewer | UI Pages |
+| Flow / Action Reviewer | Flow Designer flows, subflows, actions (v2) |
+| Table Design Reviewer | Table/dictionary design (v2) |
+
 ## 3. Architecture
 
 ```
