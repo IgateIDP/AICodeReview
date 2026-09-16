@@ -699,6 +699,7 @@ declare global {
                     'src_server_script-includes_code-review-waiver-ajax_js': {
                         table: 'sys_module'
                         id: 'eec7d1bd9a084e22a20c0798ac0887c7'
+                        deleted: true
                     }
                     'src_server_script-includes_code-review-widget-gatherer_js': {
                         table: 'sys_module'
