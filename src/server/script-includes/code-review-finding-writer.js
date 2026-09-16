@@ -4,6 +4,7 @@ CodeReviewFindingWriter.prototype = {
     initialize: function () {
         this.RUN_TABLE = 'x_rptp_ai_code_rev_review_run'
         this.FINDING_TABLE = 'x_rptp_ai_code_rev_finding'
+        this.WAIVER_TABLE = 'x_rptp_ai_code_rev_waiver'
     },
 
     VALID_SEVERITY: ['critical', 'high', 'moderate', 'low'],
@@ -112,6 +113,48 @@ CodeReviewFindingWriter.prototype = {
     },
 
     /**
+     * Normalises an issue string so wording drift and line-number/id shifts do not
+     * change a finding's identity: lower-case, strip hex ids and digits, keep only
+     * letters, collapse whitespace. Capped for stability.
+     */
+    _normalizeIssue: function (issue) {
+        var s = ('' + (issue || '')).toLowerCase()
+        s = s.replace(/[0-9a-f]{32}/g, ' ') // sys_id-like hex
+        s = s.replace(/[^a-z]+/g, ' ') // drop digits/punctuation, keep letters
+        s = s.replace(/\s+/g, ' ').trim()
+        return s.substring(0, 400)
+    },
+
+    /**
+     * Stable, human-readable fingerprint for a finding:
+     *   <sourceId>_<category>_<djb2 hash of normalized issue>
+     * Written on every finding and copied onto a waiver; matched on re-run.
+     */
+    _fingerprint: function (sourceId, category, issue) {
+        var basis = (sourceId || '') + '|' + (category || '') + '|' + this._normalizeIssue(issue)
+        var hash = 5381
+        for (var i = 0; i < basis.length; i++) {
+            hash = ((hash << 5) + hash + basis.charCodeAt(i)) | 0
+        }
+        var hex = (hash >>> 0).toString(16)
+        return ('' + (sourceId || '')).substring(0, 32) + '_' + (category || '') + '_' + hex
+    },
+
+    /**
+     * Returns the sys_id of an ACTIVE waiver matching this fingerprint, or '' if
+     * none. Findings whose fingerprint matches an active waiver are suppressed.
+     */
+    _activeWaiverFor: function (fingerprint) {
+        if (!fingerprint) return ''
+        var w = new GlideRecord(this.WAIVER_TABLE)
+        w.addQuery('fingerprint', fingerprint)
+        w.addQuery('state', 'active')
+        w.setLimit(1)
+        w.query()
+        return w.next() ? w.getUniqueValue() : ''
+    },
+
+    /**
      * Parses one artifact's reviewer response (Object or String) and writes its findings.
      * @returns {string} JSON: { parsed, finding_count, error }
      */
@@ -201,6 +244,16 @@ CodeReviewFindingWriter.prototype = {
         gr.setValue('issue', o.issue)
         gr.setValue('recommendation', o.recommendation)
         gr.setValue('line_reference', o.lineReference)
+        // Phase 7: stamp fingerprint and suppress if an active waiver matches.
+        var fp = this._fingerprint(o.sourceId, o.category, o.issue)
+        gr.setValue('fingerprint', fp)
+        var waiverSysId = this._activeWaiverFor(fp)
+        if (waiverSysId) {
+            gr.setValue('status', 'suppressed')
+            gr.setValue('waiver', waiverSysId)
+        } else {
+            gr.setValue('status', 'open')
+        }
         if (o.raw) {
             gr.setValue('raw_response', o.raw)
         }
@@ -220,6 +273,7 @@ CodeReviewFindingWriter.prototype = {
         var bySev = { critical: 0, high: 0, moderate: 0, low: 0 }
         var ga = new GlideAggregate(this.FINDING_TABLE)
         ga.addQuery('review_run', runSysId)
+        ga.addQuery('status', 'open') // Phase 7: headline counts reflect actionable (open) findings only
         ga.addAggregate('COUNT')
         ga.groupBy('severity')
         ga.query()
@@ -228,6 +282,17 @@ CodeReviewFindingWriter.prototype = {
             var c = parseInt(ga.getAggregate('COUNT'), 10)
             total += c
             if (bySev.hasOwnProperty(sev)) bySev[sev] = c
+        }
+
+        // Phase 7: count findings suppressed by an active waiver (reported separately).
+        var suppressed = 0
+        var gsup = new GlideAggregate(this.FINDING_TABLE)
+        gsup.addQuery('review_run', runSysId)
+        gsup.addQuery('status', 'suppressed')
+        gsup.addAggregate('COUNT')
+        gsup.query()
+        if (gsup.next()) {
+            suppressed = parseInt(gsup.getAggregate('COUNT'), 10)
         }
 
         run.setValue('finding_count', total)
@@ -241,6 +306,7 @@ CodeReviewFindingWriter.prototype = {
         var byTypeParts = []
         var gt = new GlideAggregate(this.FINDING_TABLE)
         gt.addQuery('review_run', runSysId)
+        gt.addQuery('status', 'open') // Phase 7: open findings only
         gt.addAggregate('COUNT')
         gt.groupBy('artifact_type')
         gt.orderByAggregate('COUNT')
@@ -249,17 +315,18 @@ CodeReviewFindingWriter.prototype = {
             byTypeParts.push(gt.getValue('artifact_type') + ': ' + gt.getAggregate('COUNT'))
         }
         var byTypeStr = byTypeParts.length ? ' By type — ' + byTypeParts.join(', ') + '.' : ''
+        var suppressedStr = suppressed ? ' (' + suppressed + ' suppressed by waiver)' : ''
 
         run.setValue(
             'summary',
             'Reviewed ' + (run.getValue('artifact_count') || '0') + ' artifact(s); ' + total +
-                ' finding(s).' + byTypeStr +
-                ' By severity — critical: ' + bySev.critical + ', high: ' + bySev.high +
+                ' open finding(s)' + suppressedStr + '.' + byTypeStr +
+                ' By severity (open) — critical: ' + bySev.critical + ', high: ' + bySev.high +
                 ', moderate: ' + bySev.moderate + ', low: ' + bySev.low + '.'
         )
         run.update()
 
-        return JSON.stringify({ run: runSysId, findings: total, by_severity: bySev })
+        return JSON.stringify({ run: runSysId, findings: total, suppressed: suppressed, by_severity: bySev })
     },
 
     type: 'CodeReviewFindingWriter',

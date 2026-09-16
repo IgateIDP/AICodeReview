@@ -17,6 +17,10 @@ declare global {
                         table: 'sys_scope_privilege'
                         id: '0cf6f89233d74f14606f1c282e5c7ba7'
                     }
+                    '0e055eea335b47d4606f1c282e5c7bcb': {
+                        table: 'sys_scope_privilege'
+                        id: '0e055eea335b47d4606f1c282e5c7bcb'
+                    }
                     '0fef419633570354606f1c282e5c7bf3': {
                         table: 'sys_hub_action_type_snapshot'
                         id: '0fef419633570354606f1c282e5c7bf3'
@@ -71,6 +75,10 @@ declare global {
                     '3c41a3a447174fd0e9ddbf66706d43ed': {
                         table: 'sys_scope_privilege'
                         id: '3c41a3a447174fd0e9ddbf66706d43ed'
+                    }
+                    '422ac25a331f0b54606f1c282e5c7b20': {
+                        table: 'sys_scope_privilege'
+                        id: '422ac25a331f0b54606f1c282e5c7b20'
                     }
                     '45033b684753cfd0e9ddbf66706d43b1': {
                         table: 'sys_scope_privilege'
@@ -222,6 +230,10 @@ declare global {
                         table: 'sys_app_module'
                         id: '8f86bb2aaa004b3e80408cb188ff53fb'
                     }
+                    acr_module_open_findings: {
+                        table: 'sys_app_module'
+                        id: '76fd7efb16474fe4ac63def09342d2ed'
+                    }
                     acr_module_report_application: {
                         table: 'sys_app_module'
                         id: 'c32104932f0c4fb0bb661b4dd85bd902'
@@ -255,6 +267,14 @@ declare global {
                         id: '7ad571af110b4de1bf7dabe05ba09c9b'
                         deleted: true
                     }
+                    acr_module_suppressed_findings: {
+                        table: 'sys_app_module'
+                        id: 'b68cde41dad34828846b06e0c8eb06a5'
+                    }
+                    acr_module_waivers: {
+                        table: 'sys_app_module'
+                        id: 'c91ce7aa847e406ea33c41dfaae24a9c'
+                    }
                     acr_report_by_application: {
                         table: 'sys_report'
                         id: 'f696f62cbad742f3849410788fb251f0'
@@ -274,6 +294,22 @@ declare global {
                         table: 'sys_report'
                         id: '8f9526a74bb44a3bb776c209bbf055f1'
                         deleted: true
+                    }
+                    acr_run_findings_entry: {
+                        table: 'sys_ui_related_list_entry'
+                        id: 'd9f8222d531547f2b97a6d58a674a583'
+                    }
+                    acr_run_queue_entry: {
+                        table: 'sys_ui_related_list_entry'
+                        id: '40c7400f1be04d63b35c1db8a43c8f71'
+                    }
+                    acr_run_related_list: {
+                        table: 'sys_ui_related_list'
+                        id: 'e2bbf7fa0e524b9fb59b5f60044b5d0e'
+                    }
+                    acr_ui_action_waive_finding: {
+                        table: 'sys_ui_action'
+                        id: '31eec219ab244899a2645ea1b8075e43'
                     }
                     b0c9255e3397c354606f1c282e5c7bff: {
                         table: 'sys_scope_privilege'
@@ -373,6 +409,10 @@ declare global {
                     code_review_script_gatherer: {
                         table: 'sys_script_include'
                         id: '67414bd618b74c99943ac94a5ea9d00f'
+                    }
+                    code_review_waiver_ajax: {
+                        table: 'sys_script_include'
+                        id: '2e221b1cc2df495d987e071b2d28ea06'
                     }
                     code_review_widget_gatherer: {
                         table: 'sys_script_include'
@@ -652,12 +692,23 @@ declare global {
                         table: 'sys_module'
                         id: '8cf407c7d2664650a2b6aaaff3dbc01f'
                     }
+                    'src_server_script-includes_code-review-waiver-ajax_js': {
+                        table: 'sys_module'
+                        id: 'eec7d1bd9a084e22a20c0798ac0887c7'
+                    }
                     'src_server_script-includes_code-review-widget-gatherer_js': {
                         table: 'sys_module'
                         id: 'aba1994753d7499382f7b57c418c671b'
                     }
                 }
                 composite: [
+                    {
+                        table: 'sys_user_role'
+                        id: '004ff1cc93ea4812a394ebe905530d69'
+                        key: {
+                            name: 'x_rptp_ai_code_rev.reviewer'
+                        }
+                    },
                     {
                         table: 'sys_choice_set'
                         id: '00aa593cb14a4a64b11749ff6deb13bb'
@@ -684,6 +735,17 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_choice'
+                        id: '016f19e0458240d2bed66928235c870b'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_finding'
+                            element: 'status'
+                            value: 'suppressed'
+                            language: 'en'
+                            dependent_value: 'NULL'
+                        }
+                    },
+                    {
                         table: 'sys_documentation'
                         id: '0270c5d2335b8f14606f1c282e5c7b58'
                         key: {
@@ -698,6 +760,15 @@ declare global {
                         key: {
                             feature_name: 'Script Code Reviewer'
                             document: 'b12d93172c9a43d49721189a636d1bb5'
+                        }
+                    },
+                    {
+                        table: 'sys_documentation'
+                        id: '04680083e1364fec912d1b37f44cbca9'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_finding'
+                            element: 'status'
+                            language: 'en'
                         }
                     },
                     {
@@ -745,6 +816,15 @@ declare global {
                                     name: 'admin'
                                 }
                             }
+                        }
+                    },
+                    {
+                        table: 'sys_documentation'
+                        id: '05fd10d51f864b1eb57fa3f1a4e03bb9'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_waiver'
+                            element: 'category'
+                            language: 'en'
                         }
                     },
                     {
@@ -1117,6 +1197,15 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_documentation'
+                        id: '230102de1cc24416a60e672014cfac22'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_waiver'
+                            element: 'artifact_name'
+                            language: 'en'
+                        }
+                    },
+                    {
                         table: 'sys_ui_section'
                         id: '24ed75da3397c754606f1c282e5c7b15'
                         key: {
@@ -1334,6 +1423,14 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_dictionary'
+                        id: '32ffafc04d26406d92952720f45f2f9c'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_waiver'
+                            element: 'fingerprint'
+                        }
+                    },
+                    {
                         table: 'sys_hub_action_output'
                         id: '33ef499633570354606f1c282e5c7be3'
                         key: {
@@ -1401,6 +1498,15 @@ declare global {
                     },
                     {
                         table: 'sys_documentation'
+                        id: '3af2245143c347298301479aa1aa8e73'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_waiver'
+                            element: 'NULL'
+                            language: 'en'
+                        }
+                    },
+                    {
+                        table: 'sys_documentation'
                         id: '3b50d1d233970354606f1c282e5c7bc8'
                         key: {
                             name: 'var__m_sys_hub_flow_variable_501449d633df8f14606f1c282e5c7bb5'
@@ -1433,10 +1539,29 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_dictionary'
+                        id: '3ce72e0eac12433f8390838a3a406c99'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_waiver'
+                            element: 'source_table'
+                        }
+                    },
+                    {
                         table: 'sn_nowassist_skill_config'
                         id: '3dcf71594ef848398143dcbb6a4e12a6'
                         key: {
                             skill_id: 'b12d93172c9a43d49721189a636d1bb5'
+                        }
+                    },
+                    {
+                        table: 'sys_choice'
+                        id: '3e5dd84e83594557ab00178d9fa30c3a'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_waiver'
+                            element: 'category'
+                            value: 'maintainability'
+                            language: 'en'
+                            dependent_value: 'NULL'
                         }
                     },
                     {
@@ -1455,6 +1580,23 @@ declare global {
                             field: '__action_status__'
                             table: 'var__m_sys_hub_action_output_0fef419633570354606f1c282e5c7bf3'
                             id: '0fef419633570354606f1c282e5c7bf3'
+                        }
+                    },
+                    {
+                        table: 'sys_choice_set'
+                        id: '408e7bfcffdd4c31add20e1c1d0e061b'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_waiver'
+                            element: 'state'
+                        }
+                    },
+                    {
+                        table: 'sys_documentation'
+                        id: '409f0adc6ff04f7dac18e0e7ad00a992'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_waiver'
+                            element: 'finding'
+                            language: 'en'
                         }
                     },
                     {
@@ -1545,6 +1687,17 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_choice'
+                        id: '4353305a9fe742079293cd87e0dc0042'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_waiver'
+                            element: 'severity'
+                            value: 'high'
+                            language: 'en'
+                            dependent_value: 'NULL'
+                        }
+                    },
+                    {
                         table: 'sys_documentation'
                         id: '43ef819633570354606f1c282e5c7b66'
                         key: {
@@ -1588,6 +1741,17 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_choice'
+                        id: '455d0543bffe47e69d30e357330d6430'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_waiver'
+                            element: 'category'
+                            value: 'best_practice'
+                            language: 'en'
+                            dependent_value: 'NULL'
+                        }
+                    },
+                    {
                         table: 'sys_one_extend_definition_config'
                         id: '458b49d57c174529a16dc36eadf9238a'
                         key: {
@@ -1615,6 +1779,14 @@ declare global {
                         key: {
                             name: 'x_rptp_ai_code_rev_queue'
                             element: 'NULL'
+                        }
+                    },
+                    {
+                        table: 'sys_dictionary'
+                        id: '47e7f7ba3e2b4c32806947d27a8250e5'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_finding'
+                            element: 'fingerprint'
                         }
                     },
                     {
@@ -1747,6 +1919,14 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_dictionary'
+                        id: '4f7a3ac8d7f04b13ace0279401fcff03'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_waiver'
+                            element: 'severity'
+                        }
+                    },
+                    {
                         table: 'sys_hub_flow_input'
                         id: '5014c9d633df8f14606f1c282e5c7bf2'
                         key: {
@@ -1813,6 +1993,14 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_choice_set'
+                        id: '5519d171d3b449a5beb9a96b8572df18'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_waiver'
+                            element: 'category'
+                        }
+                    },
+                    {
                         table: 'sn_nowassist_skill_config_status'
                         id: '555daee0122045738ff43573f93dbb4c'
                         key: {
@@ -1831,6 +2019,14 @@ declare global {
                             name: 'var__m_sys_hub_flow_input_59ffbc16331b8f14606f1c282e5c7baa'
                             element: 'artifact_sys_id'
                             language: 'en'
+                        }
+                    },
+                    {
+                        table: 'sys_dictionary'
+                        id: '559fb4302cba4b11b7b16a429fdfe686'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_waiver'
+                            element: 'category'
                         }
                     },
                     {
@@ -1881,6 +2077,15 @@ declare global {
                         key: {
                             name: 'var__m_sys_hub_flow_input_501449d633df8f14606f1c282e5c7bb5'
                             element: 'source_table'
+                            language: 'en'
+                        }
+                    },
+                    {
+                        table: 'sys_documentation'
+                        id: '581dc889e5ca42248ded2299da18e2c3'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_finding'
+                            element: 'fingerprint'
                             language: 'en'
                         }
                     },
@@ -2020,6 +2225,13 @@ declare global {
                         }
                     },
                     {
+                        table: 'ua_table_licensing_config'
+                        id: '66cab4ee749e434e8c27dd2a2587d4ec'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_waiver'
+                        }
+                    },
+                    {
                         table: 'sys_one_extend_resource_mapping'
                         id: '6800780311d84550841bbdb2f73766b9'
                         key: {
@@ -2042,6 +2254,17 @@ declare global {
                             }
                             element: 'status'
                             position: '8'
+                        }
+                    },
+                    {
+                        table: 'sys_choice'
+                        id: '690ff2547d4c4939a4ed6bba5f533968'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_waiver'
+                            element: 'state'
+                            value: 'revoked'
+                            language: 'en'
+                            dependent_value: 'NULL'
                         }
                     },
                     {
@@ -2112,6 +2335,17 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_choice'
+                        id: '6e1fb217cfea434180592abc9591ae16'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_waiver'
+                            element: 'category'
+                            value: 'performance'
+                            language: 'en'
+                            dependent_value: 'NULL'
+                        }
+                    },
+                    {
                         table: 'sys_element_mapping'
                         id: '6fef099633570354606f1c282e5c7bf0'
                         key: {
@@ -2175,6 +2409,17 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_choice'
+                        id: '727653d9fc5645e292bc3031e8faa476'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_waiver'
+                            element: 'severity'
+                            value: 'critical'
+                            language: 'en'
+                            dependent_value: 'NULL'
+                        }
+                    },
+                    {
                         table: 'sys_documentation'
                         id: '7277a8c53a3847b3b9201cfbb8483832'
                         key: {
@@ -2207,6 +2452,14 @@ declare global {
                         id: '73ef899633570354606f1c282e5c7bfc'
                         key: {
                             action_type_id: '0fef419633570354606f1c282e5c7bf3'
+                        }
+                    },
+                    {
+                        table: 'sys_dictionary'
+                        id: '74c0a7984f364dd987679bac3d4cdef8'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_finding'
+                            element: 'waiver'
                         }
                     },
                     {
@@ -2261,6 +2514,14 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_choice_set'
+                        id: '7a4cc9e6802c4b4bb2f4371879dbfb10'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_finding'
+                            element: 'status'
+                        }
+                    },
+                    {
                         table: 'sys_documentation'
                         id: '7c9f7173e0e24f2e92d2a77ac9ce3a90'
                         key: {
@@ -2291,6 +2552,17 @@ declare global {
                             name: 'x_rptp_ai_code_rev_review_run'
                             element: 'status'
                             value: 'complete'
+                            language: 'en'
+                            dependent_value: 'NULL'
+                        }
+                    },
+                    {
+                        table: 'sys_choice'
+                        id: '8048c123b77d46f38af74d37250ea2bc'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_waiver'
+                            element: 'severity'
+                            value: 'moderate'
                             language: 'en'
                             dependent_value: 'NULL'
                         }
@@ -2344,6 +2616,15 @@ declare global {
                             }
                             element: '.end_split'
                             position: '20'
+                        }
+                    },
+                    {
+                        table: 'sys_documentation'
+                        id: '82eb1f03f23f47b8a5f889cd7b582442'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_waiver'
+                            element: 'fingerprint'
+                            language: 'en'
                         }
                     },
                     {
@@ -2516,11 +2797,31 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_choice'
+                        id: '8b645f03319e4c968423de7bf7c9bdfd'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_waiver'
+                            element: 'category'
+                            value: 'security'
+                            language: 'en'
+                            dependent_value: 'NULL'
+                        }
+                    },
+                    {
                         table: 'sys_hub_step_ext_input'
                         id: '8ebf851233570354606f1c282e5c7b0a'
                         key: {
                             model: 'cabf451233570354606f1c282e5c7bc3'
                             element: 'provider'
+                        }
+                    },
+                    {
+                        table: 'sys_documentation'
+                        id: '9161fba318384503b0fab32dbc88da66'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_waiver'
+                            element: 'application'
+                            language: 'en'
                         }
                     },
                     {
@@ -2613,6 +2914,22 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_dictionary'
+                        id: '9a41b32c041349e595c63a147f72380b'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_waiver'
+                            element: 'finding'
+                        }
+                    },
+                    {
+                        table: 'sys_dictionary'
+                        id: '9a5ad47087b34c48994ede8c098ffd33'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_waiver'
+                            element: 'application'
+                        }
+                    },
+                    {
                         table: 'sys_documentation'
                         id: '9abf491233570354606f1c282e5c7bf5'
                         key: {
@@ -2635,6 +2952,14 @@ declare global {
                         key: {
                             capability: 'a957b4c20c154fb9adc2709e05c97b64'
                             api: '4d9a83679f9202107c0e2305fa0a1c8c'
+                        }
+                    },
+                    {
+                        table: 'sys_dictionary'
+                        id: '9c430306a2b340fb9bf4b1caf185b271'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_waiver'
+                            element: 'source_id'
                         }
                     },
                     {
@@ -2661,6 +2986,14 @@ declare global {
                             name: 'x_rptp_ai_code_rev_finding'
                             element: 'review_run'
                             language: 'en'
+                        }
+                    },
+                    {
+                        table: 'sys_choice_set'
+                        id: '9ea138e03a99430ebaea33e4cda535af'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_waiver'
+                            element: 'severity'
                         }
                     },
                     {
@@ -2944,6 +3277,14 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_dictionary'
+                        id: 'b61d23d4717346d8a53130fb17fc8fb6'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_finding'
+                            element: 'status'
+                        }
+                    },
+                    {
                         table: 'sys_gen_ai_feature_mapping'
                         id: 'b6f3cd3ae3924b689b0082ea8cefbd0b'
                         key: {
@@ -2956,6 +3297,17 @@ declare global {
                         id: 'b97e119ec0724d839f5422a576c393ce'
                         key: {
                             name: 'x_rptp_ai_code_rev_review_run'
+                        }
+                    },
+                    {
+                        table: 'sys_choice'
+                        id: 'b98f5f00f3dc47dba8fbe71bc3fd65df'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_finding'
+                            element: 'status'
+                            value: 'open'
+                            language: 'en'
+                            dependent_value: 'NULL'
                         }
                     },
                     {
@@ -2996,6 +3348,17 @@ declare global {
                             name: 'x_rptp_ai_code_rev_finding'
                             element: 'artifact_type'
                             value: 'table'
+                            language: 'en'
+                            dependent_value: 'NULL'
+                        }
+                    },
+                    {
+                        table: 'sys_choice'
+                        id: 'bd80c865a0c0475c81ee5eb933053f08'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_waiver'
+                            element: 'severity'
+                            value: 'low'
                             language: 'en'
                             dependent_value: 'NULL'
                         }
@@ -3136,6 +3499,15 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_documentation'
+                        id: 'c87d23726be347efb725214585b4a0f5'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_waiver'
+                            element: 'justification'
+                            language: 'en'
+                        }
+                    },
+                    {
                         table: 'sys_ui_element'
                         id: 'c95886de331b0b54606f1c282e5c7bf8'
                         key: {
@@ -3185,12 +3557,32 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_documentation'
+                        id: 'ca2579e4c9fd4482abe12b726c1fd3d4'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_waiver'
+                            element: 'severity'
+                            language: 'en'
+                        }
+                    },
+                    {
                         table: 'sys_choice'
                         id: 'cadcce6e432241e8bb98676eeaae00db'
                         key: {
                             name: 'x_rptp_ai_code_rev_finding'
                             element: 'category'
                             value: 'maintainability'
+                            language: 'en'
+                            dependent_value: 'NULL'
+                        }
+                    },
+                    {
+                        table: 'sys_choice'
+                        id: 'cd1ddeaf3d9b4f7eba00b560c2823b1a'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_waiver'
+                            element: 'state'
+                            value: 'active'
                             language: 'en'
                             dependent_value: 'NULL'
                         }
@@ -3271,6 +3663,23 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_documentation'
+                        id: 'd181cbfed2984e21b50aba21a4dec86a'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_waiver'
+                            element: 'source_id'
+                            language: 'en'
+                        }
+                    },
+                    {
+                        table: 'sys_dictionary'
+                        id: 'd1bacdf9dcf84a0c8cf886efb27b3673'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_waiver'
+                            element: 'artifact_name'
+                        }
+                    },
+                    {
                         table: 'sys_element_mapping'
                         id: 'd2bf491233570354606f1c282e5c7b35'
                         key: {
@@ -3303,6 +3712,13 @@ declare global {
                             name: 'x_rptp_ai_code_rev_review_run'
                             element: 'NULL'
                             language: 'en'
+                        }
+                    },
+                    {
+                        table: 'sys_db_object'
+                        id: 'd2fc0b78d8284511aa9fb23061567d7c'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_waiver'
                         }
                     },
                     {
@@ -3354,6 +3770,15 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_documentation'
+                        id: 'd6e3aea1b279464ba9552be8af28bbe7'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_finding'
+                            element: 'waiver'
+                            language: 'en'
+                        }
+                    },
+                    {
                         table: 'sys_agent_access_role_mapping'
                         id: 'd8def9e586c545cfbe1c79cb982b213d'
                         key: {
@@ -3369,6 +3794,14 @@ declare global {
                                     name: 'admin'
                                 }
                             }
+                        }
+                    },
+                    {
+                        table: 'sys_dictionary'
+                        id: 'd8efa93a9b34491a920762c43e7188e4'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_waiver'
+                            element: 'NULL'
                         }
                     },
                     {
@@ -3553,6 +3986,14 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_dictionary'
+                        id: 'e4e5c5eeb98a409db5ec0911ba6dca85'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_waiver'
+                            element: 'state'
+                        }
+                    },
+                    {
                         table: 'sys_ui_element'
                         id: 'e4ed79da3397c754606f1c282e5c7ba5'
                         key: {
@@ -3601,6 +4042,15 @@ declare global {
                             field: 'payload'
                             table: 'var__m_sys_flow_step_definition_input_7db1be8aff10221013f0ffffffffff2c'
                             id: '6fef459633570354606f1c282e5c7bf8'
+                        }
+                    },
+                    {
+                        table: 'sys_documentation'
+                        id: 'e8bb286f86f746a6aceee7ab141131f1'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_waiver'
+                            element: 'state'
+                            language: 'en'
                         }
                     },
                     {
@@ -3670,6 +4120,15 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_documentation'
+                        id: 'eff1ff409d7f42dea0a010a968a84bb2'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_waiver'
+                            element: 'source_table'
+                            language: 'en'
+                        }
+                    },
+                    {
                         table: 'sys_dictionary'
                         id: 'f00c2ef08325441abef49611014ba06c'
                         key: {
@@ -3714,6 +4173,14 @@ declare global {
                         key: {
                             document_key: '35bf011233570354606f1c282e5c7bba'
                             variable: '5e585a7b7f255210f465c3b76d866595'
+                        }
+                    },
+                    {
+                        table: 'sys_dictionary'
+                        id: 'f67f4a5bdecf4ca1a5f7cb7723c217cc'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_waiver'
+                            element: 'justification'
                         }
                     },
                     {
@@ -3773,6 +4240,17 @@ declare global {
                             name: 'x_rptp_ai_code_rev_queue'
                             element: 'state'
                             language: 'en'
+                        }
+                    },
+                    {
+                        table: 'sys_choice'
+                        id: 'ff944314083246b492398229d532820c'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_waiver'
+                            element: 'category'
+                            value: 'hardcoding'
+                            language: 'en'
+                            dependent_value: 'NULL'
                         }
                     },
                     {

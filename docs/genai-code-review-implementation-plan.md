@@ -5,7 +5,7 @@
 > Companions: `genai-code-review-skill-scope.md` (what & why), `TestResult.md` (48 test cases,
 > all findings and evidence).
 >
-> **Last updated:** end of Phase 3c. **Next up: Phase 4 (Orchestrator Flow).**
+> **Last updated:** end of Phase 7 (finding lifecycle & waivers — built, installed, smoke-tested).
 
 ---
 
@@ -21,7 +21,7 @@
 | **4 — Orchestrator Flow** | App sys_id → enumerate → route → review → persist | ✅ **Complete** (sync path; validated on AssetFlow + Novel Jewels) |
 | 5 — Async + surfacing | Queue + scheduled-job worker (✅); app menu (✅); reports removed — sync-hostile, use UI (Finding G); findings-driven mode (open) | ✅ **Core complete** — async queue + Code Review Worker live; validated on AssetFlow |
 | 6 — Reporting | Per-application views | Not started |
-| 7 — Hardening | Noise, cost, security review | Not started |
+| 7 — Finding lifecycle & waivers | Waiver table + reviewer-gated accept/ignore (High/Critical); suppress on re-run | ✅ **Complete, live** (approach B — see §8; smoke-tested on the instance) |
 
 **Both skills are published, activated (including AI Admin Hub), and confirmed working end to end.**
 Source and instance are in sync as of the last metadata sync.
@@ -254,3 +254,70 @@ Flow input: application (sys_scope reference)
 
 **Nothing is currently broken or half-finished.** All source is built, installed, and in sync; both
 skills are live and verified. Phase 4 is a clean start.
+
+---
+
+# 8. PHASE 7 — Finding Lifecycle & Waivers (BUILT & INSTALLED)
+
+**Goal:** let a developer or reviewer **accept / ignore** a finding so it is **suppressed on the next
+run** instead of re-appearing forever. Turns the tool from a repeating nag into an adoptable workflow.
+
+## Decisions locked with product owner
+1. **Reviewer-gated for High & Critical only.** `low`/`moderate` waivers are developer self-serve;
+   `high`/`critical` require a reviewer/tech-lead role.
+2. **Superseded each run.** Findings remain disposable (regenerated every run). The *waiver* is the
+   durable object; a matching finding is suppressed on re-run and never re-surfaces as open.
+3. **Approach B** — a dedicated waiver table (source of truth), with a display-layer `status` on the
+   finding. Not a mutable flag on transient finding rows alone.
+
+## Design
+
+Because findings are superseded each run, only the **waiver** needs a cross-run identity — a
+**fingerprint**: `hash(source_id | category | normalized(issue))`, where normalization lowercases,
+collapses whitespace, and strips volatile tokens (digits / line numbers) so LLM wording drift and
+line-number shifts don't break the match. Anchoring on `source_id + category` keeps it from being so
+loose that it suppresses genuinely new issues in the same category.
+
+```
+Run N:   finding surfaced → developer/reviewer clicks "Accept / Waive" (+ justification)
+             → x_rptp_ai_code_rev_waiver row (state=active, fingerprint, severity, who/when)
+Run N+1: CodeReviewFindingWriter.recordReview() computes each finding's fingerprint
+             → active waiver match?  yes → write status=suppressed (audit kept, excluded from counts)
+                                     no  → write status=open
+         finalizeRun() severity summary counts open only, reports "(N suppressed)" separately
+```
+
+## Components to build
+
+| Component | Type | Responsibility |
+|---|---|---|
+| `x_rptp_ai_code_rev_waiver` | Table | Durable decision: application, source_table, source_id, artifact_name, category, **severity**, **fingerprint**, **justification** (mandatory), state (`active`/`revoked`), `finding` (origin ref). who/when captured by built-in `sys_created_by`/`sys_created_on` |
+| `x_rptp_ai_code_rev.reviewer` | Role | Gates high/critical waives; admin satisfies `hasRole` implicitly. Low/moderate are self-serve (no separate developer role needed) |
+| "Accept / Waive" gating | UI Action condition (no ACL) | The finding UI Action's `condition` hides the button once suppressed and, for high/critical, requires the reviewer role — the lightweight gate agreed in lieu of an ACL layer |
+| `status` + `waiver` columns on `x_rptp_ai_code_rev_finding` | Table change | `status`: `open`/`suppressed`; `waiver` reference for traceability |
+| `CodeReviewFindingWriter` | Script Include change | On `recordReview()`: compute fingerprint, look up active waiver, set `status`; on `finalizeRun()`: count open only, report suppressed separately |
+| "Accept / Waive" | UI Action on finding (client) | Visible when `status=open`; **prompts for a required justification**, then calls `CodeReviewWaiverAjax` (GlideAjax) → creates the waiver + **suppresses the finding immediately** → **returns to the finding list**. No intermediate form. Hidden for High/Critical unless caller holds `reviewer` |
+| `CodeReviewWaiverAjax` | Script Include (client-callable) | `waive(sysparm_finding, sysparm_justification)`: validates, re-checks the High/Critical reviewer gate **server-side**, creates the active waiver, sets the finding `status=suppressed` + `waiver`, returns `{ok,waiver,error}` |
+| Run-form related lists | `sys_ui_related_list` (+ entries) | Code Review Findings (`…finding.review_run`) and Code Review Queue (`…queue.review_run`) shown by default on the run form — results + live progress in one place. Implicit relationships (no `sys_relationship`) |
+| Navigation / views | UI change | Default finding views filter `status=open`; "Critical & High" excludes suppressed; add **Waivers** module + "Suppressed findings" view |
+
+## Build order
+1. `x_rptp_ai_code_rev_waiver` table + the `reviewer` role.
+2. Add `status` + `fingerprint` + `waiver` columns to the finding table.
+3. "Accept / Waive" UI Action with the severity+role `condition` (no ACL layer).
+4. `CodeReviewFindingWriter` — fingerprint helper + suppression in `recordReview()` + summary change.
+5. "Accept / Waive" UI Action.
+6. Navigation modules/views.
+7. Test on AssetFlow: run → waive one finding → re-run → confirm it stays `suppressed`; verify a
+   High/Critical waive is blocked without the reviewer role. Then update all three docs + TestResult.
+
+## Known limitation (documented, tunable)
+Fingerprint stability depends on LLM wording consistency — a materially rephrased issue can escape a
+waiver and reappear. The normalization + `source_id + category` anchor mitigates this; tune against
+the real corpus (Novel Jewels / LOS) during build.
+
+## Deferred to a later pass
+- **Waiver expiry / review date** ("accept for 90 days").
+- **Code-change invalidation** — auto-revoke a waiver when the artifact's code hash changes materially
+  (the pre-scanner already computes size/markers, so a hash is cheap to add).
+- **Findings-driven mode** interplay — skip re-reviewing artifacts whose findings are all waived.

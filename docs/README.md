@@ -70,13 +70,17 @@ See `docs/genai-code-review-orchestrator-design.md` for the full design.
     │   │   ├── code-review-orchestrator.now.ts
     │   │   ├── code-review-pre-scanner.now.ts
     │   │   ├── code-review-script-gatherer.now.ts
+    │   │   ├── code-review-waiver-ajax.now.ts
     │   │   └── code-review-widget-gatherer.now.ts
     │   ├── security/
-    │   │   └── cross-scope-privileges.now.ts
+    │   │   ├── cross-scope-privileges.now.ts
+    │   │   └── roles.now.ts
     │   ├── tables/
     │   │   └── code-review-tables.now.ts
     │   └── ui/
-    │       └── navigation.now.ts
+    │       ├── finding-actions.now.ts
+    │       ├── navigation.now.ts
+    │       └── review-run-related-lists.now.ts
     └── server/
         ├── scheduled/
         │   └── code-review-worker.js
@@ -86,6 +90,7 @@ See `docs/genai-code-review-orchestrator-design.md` for the full design.
             ├── code-review-orchestrator.js
             ├── code-review-pre-scanner.js
             ├── code-review-script-gatherer.js
+            ├── code-review-waiver-ajax.js
             └── code-review-widget-gatherer.js
 ```
 
@@ -100,6 +105,9 @@ See `docs/genai-code-review-orchestrator-design.md` for the full design.
 | `x_rptp_ai_code_rev_review_run` | Table | One row per application review execution |
 | `x_rptp_ai_code_rev_finding` | Table | One row per issue (severity, category, issue, recommendation) |
 | `x_rptp_ai_code_rev_queue` | Table | One row per artifact awaiting/undergoing review (async worker) |
+| `x_rptp_ai_code_rev_waiver` | Table | One durable "accept / ignore" decision per finding; drives suppression on re-run (Phase 7) |
+| `Accept / Waive` | UI Action | On a finding: client-side redirect to a pre-filled waiver form; hidden for High/Critical unless the user holds the reviewer role |
+| `x_rptp_ai_code_rev.reviewer` | Role | Required to waive High/Critical findings (Low/Moderate are self-serve) |
 | `CodeReviewArtifactCollector` | Script Include | Enumerates an app's artifacts + reviewer routing key |
 | `CodeReviewPreScanner` | Script Include | Regexes full untruncated source for markers; flags hidden hits + size tier |
 | `CodeReviewScriptGatherer` | Script Include | Returns a script/REST/UI-Page artifact's code + context as JSON |
@@ -176,7 +184,8 @@ Notes:
 | 4 — Orchestrator | Subflow + orchestrator; validated on AssetFlow + Novel Jewels | ✅ Complete |
 | 5 — Async + navigation | Queue + Code Review Worker; app menu | ✅ Complete |
 | 6 — Reporting | Dashboards (built in the ServiceNow UI) | ◻️ UI activity |
-| 7 — Hardening | Noise/cost controls, `GlideRecordSecure` readability follow-up, findings-driven mode | ◻️ Optional / open |
+| 7 — Finding lifecycle & waivers | Accept/ignore a finding → durable waiver → suppressed on re-run (reviewer-gated for High/Critical) | ✅ Complete, live |
+| 8 — Hardening | Noise/cost controls, `GlideRecordSecure` readability follow-up, findings-driven mode, waiver expiry/code-change invalidation | ◻️ Optional / open |
 
 **Known open items** (see `docs/TestResult.md`): findings written before the `maxLength` fix
 (Finding H) have text clipped to 40 chars — re-run affected apps for full text; occasional

@@ -1,8 +1,10 @@
 # GenAI Skill Scope — "Code Quality Reviewer"
 
-> Status: **DRAFT / SCOPE ONLY** — no skill has been built yet. This document defines
-> what the skill will do, how it will work, its boundaries, and the decisions required
-> before implementation.
+> Status: **DELIVERED** — this scope has been realized. Both reviewer skills (Script Code Reviewer,
+> Service Portal Widget Reviewer) are built, live, and orchestrated end-to-end; the app ships in its
+> own scope `x_rptp_ai_code_rev`. This document is retained as the original "what & why" rationale;
+> for current state see `genai-code-review-implementation-plan.md` (§1 status, §8 finding lifecycle &
+> waivers) and `README.md`. The "Decisions Required" in §7 have all been made (see notes inline).
 
 ## 1. Purpose
 

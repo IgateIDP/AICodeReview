@@ -4,8 +4,10 @@
 > end-to-end. Companion to `genai-code-review-implementation-plan.md` (state/sequencing),
 > `genai-code-review-skill-scope.md` (what & why), and `TestResult.md` (validation).
 >
-> Status: **Phase 4 built and validated end-to-end (AssetFlow + Novel Jewels). Async execution
-> layer (queue + scheduled worker) designed and agreed — see §3A; build pending.**
+> Status: **Phases 4–5 built and live** — synchronous path plus the asynchronous execution layer
+> (queue + Code Review Worker scheduled job, §3A) are installed and validated. **Phase 7 (finding
+> lifecycle & waivers)** adds a waiver table + suppression in `CodeReviewFindingWriter` — see the
+> implementation plan §8.
 
 ---
 

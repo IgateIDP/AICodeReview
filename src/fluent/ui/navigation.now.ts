@@ -16,6 +16,7 @@ import { ApplicationMenu, Record } from '@servicenow/sdk/core'
 
 const FINDING_TABLE = 'x_rptp_ai_code_rev_finding'
 const RUN_TABLE = 'x_rptp_ai_code_rev_review_run'
+const WAIVER_TABLE = 'x_rptp_ai_code_rev_waiver'
 
 export const aiCodeReviewerMenu = ApplicationMenu({
     $id: Now.ID['acr_app_menu'],
@@ -41,7 +42,23 @@ Record({
     },
 })
 
-// Critical & High findings (filtered list)
+// Open findings (excludes waived/suppressed) — the default actionable worklist
+Record({
+    $id: Now.ID['acr_module_open_findings'],
+    table: 'sys_app_module',
+    data: {
+        title: 'Open Findings',
+        application: aiCodeReviewerMenu,
+        link_type: 'FILTER',
+        name: FINDING_TABLE,
+        filter: 'status=open',
+        active: true,
+        order: 90,
+        roles: ['admin'],
+    },
+})
+
+// Critical & High findings (filtered list) — open only
 Record({
     $id: Now.ID['acr_module_critical_high'],
     table: 'sys_app_module',
@@ -50,9 +67,25 @@ Record({
         application: aiCodeReviewerMenu,
         link_type: 'FILTER',
         name: FINDING_TABLE,
-        filter: 'severityINcritical,high',
+        filter: 'severityINcritical,high^status=open',
         active: true,
         order: 150,
+        roles: ['admin'],
+    },
+})
+
+// Suppressed / waived findings (accepted risks) — audit trail
+Record({
+    $id: Now.ID['acr_module_suppressed_findings'],
+    table: 'sys_app_module',
+    data: {
+        title: 'Waived / Suppressed Findings',
+        application: aiCodeReviewerMenu,
+        link_type: 'FILTER',
+        name: FINDING_TABLE,
+        filter: 'status=suppressed',
+        active: true,
+        order: 200,
         roles: ['admin'],
     },
 })
@@ -82,6 +115,21 @@ Record({
         name: RUN_TABLE,
         active: true,
         order: 310,
+        roles: ['admin'],
+    },
+})
+
+// Waivers list — accepted-risk decisions that drive suppression on re-run
+Record({
+    $id: Now.ID['acr_module_waivers'],
+    table: 'sys_app_module',
+    data: {
+        title: 'Waivers',
+        application: aiCodeReviewerMenu,
+        link_type: 'LIST',
+        name: WAIVER_TABLE,
+        active: true,
+        order: 320,
         roles: ['admin'],
     },
 })

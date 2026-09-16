@@ -101,6 +101,88 @@ export const x_rptp_ai_code_rev_finding = Table({
         recommendation: MultiLineTextColumn({ label: 'Recommendation', maxLength: 4000 }),
         line_reference: StringColumn({ label: 'Line / location', maxLength: 500 }),
         raw_response: MultiLineTextColumn({ label: 'Raw AI response', maxLength: 8000 }),
+        // --- Phase 7: finding lifecycle ---
+        // Stable identity of the issue across runs (source_id + category + normalized issue).
+        // Written by CodeReviewFindingWriter; matched against active waivers to suppress on re-run.
+        fingerprint: StringColumn({ label: 'Fingerprint', maxLength: 64 }),
+        // Display-layer state. 'open' = actionable; 'suppressed' = matched an active waiver.
+        status: ChoiceColumn({
+            label: 'Status',
+            dropdown: 'dropdown_without_none',
+            default: 'open',
+            choices: {
+                open: 'Open',
+                suppressed: 'Suppressed',
+            },
+        }),
+        // Set when suppressed, for traceability back to the accepting decision.
+        waiver: ReferenceColumn({
+            label: 'Waiver',
+            referenceTable: 'x_rptp_ai_code_rev_waiver',
+        }),
+    },
+})
+
+/**
+ * Waiver record (Phase 7): a durable "accept / ignore" decision for a finding.
+ * Findings are regenerated (superseded) each run; the waiver persists and, on the
+ * next run, any finding whose fingerprint matches an ACTIVE waiver is written with
+ * status = 'suppressed' instead of 'open'. This is the source of truth for the
+ * accept/ignore lifecycle.
+ *
+ * Governance is enforced lightly (no ACL): the "Accept / Waive" UI Action on the
+ * finding only offers itself for high/critical findings when the user holds
+ * x_rptp_ai_code_rev.reviewer; low/moderate are self-serve. who/when are captured
+ * by the built-in sys_created_by / sys_created_on fields.
+ */
+export const x_rptp_ai_code_rev_waiver = Table({
+    name: 'x_rptp_ai_code_rev_waiver',
+    label: 'Code Review Waiver',
+    display: 'artifact_name',
+    schema: {
+        application: ReferenceColumn({ label: 'Application', referenceTable: 'sys_scope' }),
+        source_table: TableNameColumn({ label: 'Source table' }),
+        source_id: StringColumn({ label: 'Source sys_id', maxLength: 32 }),
+        artifact_name: StringColumn({ label: 'Artifact', maxLength: 200 }),
+        category: ChoiceColumn({
+            label: 'Category',
+            dropdown: 'dropdown_without_none',
+            choices: {
+                hardcoding: 'Hardcoding',
+                security: 'Security',
+                performance: 'Performance',
+                maintainability: 'Maintainability',
+                best_practice: 'Best practice',
+            },
+        }),
+        severity: ChoiceColumn({
+            label: 'Severity',
+            dropdown: 'dropdown_without_none',
+            choices: {
+                critical: 'Critical',
+                high: 'High',
+                moderate: 'Moderate',
+                low: 'Low',
+            },
+        }),
+        // Copied from the finding at waive time; matched by CodeReviewFindingWriter on re-run.
+        fingerprint: StringColumn({ label: 'Fingerprint', maxLength: 64 }),
+        // Why this risk is accepted — required so an accepted risk is never undocumented.
+        justification: MultiLineTextColumn({ label: 'Justification', maxLength: 4000, mandatory: true }),
+        state: ChoiceColumn({
+            label: 'State',
+            dropdown: 'dropdown_without_none',
+            default: 'active',
+            choices: {
+                active: 'Active',
+                revoked: 'Revoked',
+            },
+        }),
+        // The finding this waiver was created from (informational traceability).
+        finding: ReferenceColumn({
+            label: 'Origin finding',
+            referenceTable: 'x_rptp_ai_code_rev_finding',
+        }),
     },
 })
 
