@@ -162,6 +162,12 @@ CodeReviewOrchestrator.prototype = {
         while (reqRuns.next()) {
             var app = reqRuns.getValue('application')
             this._enqueue(reqRuns.getUniqueValue(), app, this.ENQUEUE_MAX)
+            // Name runs created via the minimal "New Review" view (only Application set).
+            if (!reqRuns.getValue('name')) {
+                var appGr = new GlideRecord('sys_scope')
+                var appName = appGr.get(app) ? appGr.getValue('name') : app
+                reqRuns.setValue('name', 'Code review: ' + appName + ' (' + new GlideDateTime().getDisplayValue() + ')')
+            }
             reqRuns.setValue('status', 'running')
             if (!reqRuns.getValue('started')) reqRuns.setValue('started', new GlideDateTime())
             reqRuns.update()

@@ -9,7 +9,7 @@ Record({
         active: true,
         allow_high_security_roles: false,
         attributes:
-            'browserActivatedIn=chrome,integrationActivatedIn=standalone,labelCacheCleanUpExecuted=true,timeFromCreateToActivate=90105000,viewActivatedIn=naturalLanguage',
+            'browserActivatedIn=chrome,integrationActivatedIn=standalone,labelCacheCleanUpExecuted=true,timeFromCreateToActivate=91655000,viewActivatedIn=naturalLanguage',
         authored_on_release_version: 29000,
         callable_by_client_api: false,
         flow_priority: 'MEDIUM',
@@ -648,7 +648,7 @@ Record({
     $id: Now.ID['8114cdd633df8f14606f1c282e5c7bd9'],
     table: 'sys_flow_subflow_plan',
     data: {
-        plan: 'com.snc.process_flow.engine.ProcessPlan@45c9749f',
+        plan: 'com.snc.process_flow.engine.ProcessPlan@35a42f6',
         plan_id: '59ffbc16331b8f14606f1c282e5c7baa',
         snapshot: '501449d633df8f14606f1c282e5c7bb5',
         sys_domain: 'global',

@@ -21,7 +21,7 @@ export const x_rptp_ai_code_rev_review_run = Table({
     display: 'name',
     schema: {
         name: StringColumn({ label: 'Name', maxLength: 200 }),
-        application: ReferenceColumn({ label: 'Application', referenceTable: 'sys_scope' }),
+        application: ReferenceColumn({ label: 'Application', referenceTable: 'sys_scope', mandatory: true }),
         status: ChoiceColumn({
             label: 'Status',
             dropdown: 'dropdown_without_none',

@@ -275,6 +275,10 @@ declare global {
                         table: 'sys_app_module'
                         id: 'c91ce7aa847e406ea33c41dfaae24a9c'
                     }
+                    acr_new_review_view_rule: {
+                        table: 'sysrule_view'
+                        id: 'c773c336c8094164883ebd156e85b634'
+                    }
                     acr_report_by_application: {
                         table: 'sys_report'
                         id: 'f696f62cbad742f3849410788fb251f0'
@@ -1497,6 +1501,28 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_ui_element'
+                        id: '38acaa8548214dcb80924805642a11a5'
+                        key: {
+                            sys_ui_section: {
+                                id: '5dbf1e27c874435db253210a41cfb3ad'
+                                key: {
+                                    name: 'x_rptp_ai_code_rev_review_run'
+                                    caption: 'New Review'
+                                    view: {
+                                        id: '5be0cf2270b5489fb241302c618def29'
+                                        key: {
+                                            name: 'acr_new_review'
+                                        }
+                                    }
+                                    sys_domain: 'global'
+                                }
+                            }
+                            element: 'application'
+                            position: '0'
+                        }
+                    },
+                    {
                         table: 'sys_documentation'
                         id: '3af2245143c347298301479aa1aa8e73'
                         key: {
@@ -1946,6 +1972,20 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_ui_form'
+                        id: '50feb1dfa1ee42edb22d5f2d9ae55d1c'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_review_run'
+                            view: {
+                                id: '5be0cf2270b5489fb241302c618def29'
+                                key: {
+                                    name: 'acr_new_review'
+                                }
+                            }
+                            sys_domain: 'global'
+                        }
+                    },
+                    {
                         table: 'sys_dictionary'
                         id: '5132efc2e8a74701ba3c9c49238cc22c'
                         key: {
@@ -2128,6 +2168,13 @@ declare global {
                         }
                     },
                     {
+                        table: 'sys_ui_view'
+                        id: '5be0cf2270b5489fb241302c618def29'
+                        key: {
+                            name: 'acr_new_review'
+                        }
+                    },
+                    {
                         table: 'sys_hub_step_ext_input'
                         id: '5bef059633570354606f1c282e5c7b42'
                         key: {
@@ -2149,6 +2196,21 @@ declare global {
                         key: {
                             model: '0fef419633570354606f1c282e5c7bf3'
                             element: 'skill_inputs'
+                        }
+                    },
+                    {
+                        table: 'sys_ui_section'
+                        id: '5dbf1e27c874435db253210a41cfb3ad'
+                        key: {
+                            name: 'x_rptp_ai_code_rev_review_run'
+                            caption: 'New Review'
+                            view: {
+                                id: '5be0cf2270b5489fb241302c618def29'
+                                key: {
+                                    name: 'acr_new_review'
+                                }
+                            }
+                            sys_domain: 'global'
                         }
                     },
                     {
@@ -2370,6 +2432,39 @@ declare global {
                             name: 'x_rptp_ai_code_rev_finding'
                             element: 'application'
                             language: 'en'
+                        }
+                    },
+                    {
+                        table: 'sys_ui_form_section'
+                        id: '713a3470ed0f4b2895fd6f666890e212'
+                        key: {
+                            sys_ui_form: {
+                                id: '50feb1dfa1ee42edb22d5f2d9ae55d1c'
+                                key: {
+                                    name: 'x_rptp_ai_code_rev_review_run'
+                                    view: {
+                                        id: '5be0cf2270b5489fb241302c618def29'
+                                        key: {
+                                            name: 'acr_new_review'
+                                        }
+                                    }
+                                    sys_domain: 'global'
+                                }
+                            }
+                            sys_ui_section: {
+                                id: '5dbf1e27c874435db253210a41cfb3ad'
+                                key: {
+                                    name: 'x_rptp_ai_code_rev_review_run'
+                                    caption: 'New Review'
+                                    view: {
+                                        id: '5be0cf2270b5489fb241302c618def29'
+                                        key: {
+                                            name: 'acr_new_review'
+                                        }
+                                    }
+                                    sys_domain: 'global'
+                                }
+                            }
                         }
                     },
                     {
