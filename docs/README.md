@@ -1,98 +1,97 @@
 # AI Code Reviewer
 
-An application for reviewing ServiceNow application code against ServiceNow coding
-best practices — with a focus on eliminating hardcoding and enforcing recommended
-patterns across scripts, UI pages, tables, Flow Designer flows/subflows/actions, and
-Scripted REST APIs.
+An application that reviews ServiceNow application code against ServiceNow coding best
+practices — with a focus on eliminating hardcoding and enforcing recommended patterns —
+using ServiceNow GenAI Skills. Point it at an application and it reviews every supported
+artifact (scripts, Scripted REST, UI Pages, Service Portal widgets) and records
+severity-ranked findings with remediation guidance.
 
-## Direction
+Scope: `x_rptp_ai_code_rev` · Instance: `ven06798` · Fluent SDK 4.11.2.
 
-The app is pivoting from **deterministic Instance Scan checks** to an **AI-based code
-review** approach powered by ServiceNow GenAI Skills.
-
-### Why the change
-- The platform already ships a rich library of **Instance Scan** checks and suites
-  (Auditor, Deprecated APIs, Access Auditor, schema validators, etc.) that cover the
-  **security, upgradability, and schema-integrity** angles. These are run via a master
-  Suite and their findings can be grouped **per application** (`scan_finding.sys_package`).
-- The unique value this app adds is **context-aware, best-practice code review** —
-  nuanced judgment (hardcoding, API misuse, maintainability) that deterministic rules
-  can't express well. That is best delivered with an LLM.
-
-Because of this, the custom deterministic scan-check definitions that originally lived
-in `src/fluent/scan-checks/` have been **removed** in favor of the GenAI approach. The
-out-of-box Instance Scan suites remain available on the instance for the deterministic
-layer.
-
-## Target Architecture
+## How it works
 
 ```
-App sys_id
+Application (review_run record, status = requested)
    │
    ▼
-[Enumerator]   query sys_metadata (sys_scope = app)  →  list of {type, sys_id}
-   │
+Code Review Worker (scheduled job, every ~1 min / Execute Now)
+   │  → CodeReviewOrchestrator.processNextBatch()
    ▼
-[Router]       switch on sys_class_name (deterministic)
-   ├── sys_script / sys_script_include /
-   │   sys_script_client / sys_ui_action /
-   │   sys_ws_operation                      → Script Code Reviewer Skill
-   ├── sys_ui_page                           → UI Page Reviewer Skill
-   ├── sys_hub_flow / action instances       → Flow / Action Reviewer Skill
-   └── (table dictionary)                    → Table Design Reviewer Skill
-   │
-   ▼
-[Aggregator]   persist each assessment, tagged by application
+[Enumerate]  CodeReviewArtifactCollector → app artifacts + reviewer routing key
+[Enqueue]    one x_rptp_ai_code_rev_queue row per artifact (pending)
+[Process]    batch of 5:  Review One Artifact subflow → Execute Skill → LLM
+                 script family → Script Code Reviewer
+                 sp_widget     → Service Portal Widget Reviewer
+[Persist]    CodeReviewFindingWriter parses JSON → x_rptp_ai_code_rev_finding rows
+[Finalize]   when queue drains → review_run = complete + severity/type summary
 ```
 
-> **Design note:** Scripted REST (`sys_ws_operation`) is handled by the **Script Code Reviewer**
-> rather than its own skill — its logic is a plain script column, so only the rubric differs.
-> This keeps v1 at two reviewer skills instead of three.
+- **Two reviewer GenAI Skills**, each with a gather tool + tailored rubric.
+- **A "dumb" subflow** does the one thing Fluent can't express (the `Execute Skill` call);
+  **a "smart" Script Include** does everything else (enumerate, parse, persist) — so the
+  orchestration is versioned in source and testable via `run_script`.
+- **Async by design**: a queue + paced worker keeps each transaction small, so whole-app
+  reviews (e.g. LOS ≈ 112 artifacts) run in resilient batches instead of one over-limit run.
+- **One artifact per LLM call** — context limits, precise attribution, failure isolation.
 
-- **Per-type GenAI Skills** are the review engines (each with its own gather-logic + prompt/rubric).
-- **One orchestrator** (a Flow/Subflow — recommended — or an AI Agent) enumerates, routes,
-  loops, and aggregates.
-- The skill's atomic unit is **one artifact per invocation** (LLM context limits); app-wide
-  review = loop the orchestrator over the artifact list.
-- Optional: seed the loop from **Instance Scan findings** rather than full enumeration, to
-  focus the AI where the cheap deterministic checks already flagged issues.
+See `docs/genai-code-review-orchestrator-design.md` for the full design.
 
 ## Review Focus
 - **No hardcoding:** sys_ids, URLs, credentials/tokens, instance names, user/group names, magic numbers.
-- **Best practices:** efficient queries (GlideAggregate vs getRowCount), scope-safe APIs,
-  proper logging (`gs.info/warn/error`), no `eval`, error handling, security (ACLs, input
-  validation), no direct DOM access, sensible data-model design.
+- **Best practices:** efficient queries (GlideAggregate vs getRowCount), GlideRecordSecure,
+  scope-safe APIs, proper logging (`gs.info/warn/error`), no `eval`, error handling, ACLs,
+  input validation, no direct DOM access; for widgets: AngularJS/`$http`, template XSS, CSS scoping.
 
 ## Prerequisites
-- **ServiceNow Otto for App Engine / AI Platform Prime** (required for GenAI Skills / Agents).
+- **ServiceNow Otto for App Engine / AI Platform Prime** (required for GenAI Skills).
 - **Fluent SDK ≥ 4.6.0** (instance is on 4.11.2).
 
 ## Repository Structure
 ```
 .
-├── README.md                                   # this file
 ├── now.config.json
 ├── package.json
 ├── docs/
-│   ├── genai-code-review-skill-scope.md        # scope: what & why
-│   ├── genai-code-review-implementation-plan.md# phased plan: how
-│   └── TestResult.md                           # validation records per phase
+│   ├── README.md                                 # this file
+│   ├── genai-code-review-skill-scope.md          # scope: what & why
+│   ├── genai-code-review-implementation-plan.md  # phased plan + resume state
+│   ├── genai-code-review-orchestrator-design.md  # orchestrator + async design
+│   └── TestResult.md                             # validation records + findings
 └── src/
     ├── fluent/
     │   ├── now-assist-skills/
-    │   │   └── script-reviewer.now.ts          # Script Code Reviewer GenAI Skill
+    │   │   ├── script-reviewer.now.ts
+    │   │   └── widget-reviewer.now.ts
+    │   ├── scheduled/
+    │   │   └── code-review-worker.now.ts
     │   ├── script-includes/
     │   │   ├── code-review-artifact-collector.now.ts
-    │   │   └── code-review-script-gatherer.now.ts
+    │   │   ├── code-review-finding-writer.now.ts
+    │   │   ├── code-review-orchestrator.now.ts
+    │   │   ├── code-review-pre-scanner.now.ts
+    │   │   ├── code-review-script-gatherer.now.ts
+    │   │   └── code-review-widget-gatherer.now.ts
     │   ├── security/
     │   │   └── cross-scope-privileges.now.ts
-    │   └── tables/
-    │       └── code-review-tables.now.ts
+    │   ├── tables/
+    │   │   └── code-review-tables.now.ts
+    │   └── ui/
+    │       └── navigation.now.ts
     └── server/
+        ├── scheduled/
+        │   └── code-review-worker.js
         └── script-includes/
             ├── code-review-artifact-collector.js
-            └── code-review-script-gatherer.js
+            ├── code-review-finding-writer.js
+            ├── code-review-orchestrator.js
+            ├── code-review-pre-scanner.js
+            ├── code-review-script-gatherer.js
+            └── code-review-widget-gatherer.js
 ```
+
+> **Not in source:** the `Review One Artifact` subflow and the `Copy of Execute an AI skill`
+> action are built in Flow Designer and synced. Reports/dashboards are built in the ServiceNow
+> UI — `sys_report` records round-trip badly through Fluent sync (see TestResult Finding G).
 
 ## Components Delivered
 
@@ -100,13 +99,19 @@ App sys_id
 |---|---|---|
 | `x_rptp_ai_code_rev_review_run` | Table | One row per application review execution |
 | `x_rptp_ai_code_rev_finding` | Table | One row per issue (severity, category, issue, recommendation) |
+| `x_rptp_ai_code_rev_queue` | Table | One row per artifact awaiting/undergoing review (async worker) |
 | `CodeReviewArtifactCollector` | Script Include | Enumerates an app's artifacts + reviewer routing key |
-| `CodeReviewPreScanner` | Script Include | Regexes **full untruncated** source for 17 markers; flags hidden hits + size tier |
+| `CodeReviewPreScanner` | Script Include | Regexes full untruncated source for markers; flags hidden hits + size tier |
 | `CodeReviewScriptGatherer` | Script Include | Returns a script/REST/UI-Page artifact's code + context as JSON |
 | `CodeReviewWidgetGatherer` | Script Include | Returns a Service Portal widget's six code surfaces, with per-surface caps |
-| `Script Code Reviewer` | GenAI Skill | Reviews Business Rules, Script Includes, Client Scripts, UI Actions, Scripted REST, UI Pages |
-| `Service Portal Widget Reviewer` | GenAI Skill | Reviews `sp_widget` across server/client/template/CSS/link/options |
-| 7 × read + 1 × execute privilege | Cross-scope privilege | Access to platform script, UI Page and `sp_widget` tables, and `GlideRecordSecure` |
+| `CodeReviewFindingWriter` | Script Include | Parses reviewer JSON → finding rows; run lifecycle + severity/type rollup |
+| `CodeReviewOrchestrator` | Script Include | `run()` (sync), `requestReview()` + `processNextBatch()` (async) |
+| `Code Review Worker` | Scheduled Job | Every ~1 min (+ Execute Now): enqueue, process a batch, finalize |
+| `Script Code Reviewer` | GenAI Skill | Business Rules, Script Includes, Client Scripts, UI Actions, Scripted REST, UI Pages |
+| `Service Portal Widget Reviewer` | GenAI Skill | `sp_widget` across server/client/template/CSS/link/options |
+| `Review One Artifact` | Subflow (UI) | Routes by type → `Execute Skill` → returns review JSON (no DB) |
+| AI Code Reviewer menu | App menu | Review Findings, Critical & High Findings, Review Runs |
+| 8 × read + 6 × execute | Cross-scope privileges | Platform metadata tables + FlowAPI/GlideRecordSecure/ScopedGlideElement |
 
 ## Artifact Coverage
 
@@ -122,46 +127,57 @@ App sys_id
 | Flows / Subflows / Actions | — | *v2, not built* |
 | Table design | — | *v2, not built* |
 
-> **Note on widget size:** real widgets on this instance reach 40–65 KB across their six surfaces,
-> so the widget gatherer applies per-surface caps (server 10K, client 10K, template 8K, CSS 4K,
-> link 3K, options 3K) and reports a `_truncated` flag per surface. See `docs/TestResult.md`
-> Finding E for the known false-negative risk this introduces and the recommended mitigation.
+## Running a review
+
+- **On-demand:** insert a `x_rptp_ai_code_rev_review_run` record with an Application and
+  `status = requested`; the Code Review Worker picks it up within a minute. Or run
+  **Code Review Worker → Execute Now**.
+- **Programmatic:** `new CodeReviewOrchestrator().requestReview('<app_sys_id>')` (async), or
+  `.run('<app_sys_id>', <max>)` for a small synchronous run.
+- **View results:** navigator → **AI Code Reviewer → Review Findings** (group by Application);
+  each run's `summary` shows the by-type and by-severity breakdown.
 
 ## Changing the LLM Provider or Model
 
-The reviewer skills default to **Now LLM Service / `llm_generic_large_v2`**, but the provider and
-model are **not fixed** — they can be changed at any time **without a rebuild or redeploy**:
+Reviewer skills default to **Now LLM Service / `llm_generic_large_v2`**, changeable at any time
+**without a rebuild** in **ServiceNow Otto → Skill Kit → (skill) → "Choose default provider"**.
+Approved providers here: AWS Claude · Azure OpenAI · Google Gemini · Now LLM Service. Frontier
+models (Claude/GPT/Gemini) generally give stronger, better-structured findings for this
+reasoning-heavy task.
 
-1. Navigate to **Now Assist / ServiceNow Otto → Skill Kit** (or open the skill URL below).
-2. Open the **Script Code Reviewer** skill.
-3. In the **"Choose default provider"** panel, select a different provider and model.
-4. Save. The skill immediately uses the new provider.
+## Committing to Git (browser Fluent IDE)
 
-**Approved providers on this instance:** AWS Claude · Azure OpenAI · Google Gemini · Now LLM Service.
-(Only steward-approved providers appear; the approved list is governed by
-`sys_gen_ai_routing_selection` / `sys_gen_ai_provider_routing`.)
+This is a plain local git repo (a `.git/` folder in the workspace) — **not** Studio source
+control. Do **not** link it in Studio (that versions metadata XML, a different representation).
+The browser Fluent IDE drives git through the **command palette** (`Ctrl+Shift+P`):
 
-> **Note:** code review is a reasoning-heavy, long-context task. The Now LLM models are compact
-> ServiceNow-hosted models; the frontier providers (Claude / GPT / Gemini) generally produce stronger,
-> better-structured code findings. Switch via the steps above if review depth matters more than
-> staying on the native LLM.
+1. **`Git: Manage Credentials`** → opens the **IDE Git Credentials** table
+   (`sn_glider_ide_git_credential`). Create/reuse a credential holding your GitHub auth.
+   For HTTPS, GitHub requires a **Personal Access Token** (scope `repo`) as the password — not
+   your account password.
+2. **`Git: Stage All Changes`** — stages tracked *and* new/untracked files.
+3. **`Git: Commit`** — enter a commit message.
+4. **`Git: Push`** — enter the remote (`https://github.com/IgateIDP/AICodeReview.git`) the first time.
 
-**Skill Builder URL:**
-`https://ven06798.service-now.com/now/now-assist-skillkit/skill/b12d93172c9a43d49721189a636d1bb5/params/prompt-id/1451649a72bb4e828761ced4250633e1/config-id/3dcf71594ef848398143dcbb6a4e12a6`
+Notes:
+- Sequence is always **stage → commit → push**. (`Git: Commit` may auto-stage if nothing is staged,
+  but staging explicitly is the safe habit.)
+- If push is rejected `non-fast-forward`, the remote has commits you don't — run **`Git: Pull`**
+  first, then push. Avoid force-push unless you're sure local should win.
+- Committing to GitHub is independent of `now-sdk install` (which deploys to the instance).
 
 ## Status
 
-**Phase 1 (Foundation) — complete.** Results tables, artifact enumerator, and cross-scope
-privileges installed and validated against a real application (LOS, 35 artifacts).
+| Phase | Scope | Status |
+|---|---|---|
+| 1 — Foundation | Results tables, enumerator, cross-scope privileges | ✅ Complete |
+| 2 — Script Reviewer | `Script Code Reviewer` skill + gatherer | ✅ Complete, live |
+| 3 — Widget Reviewer + REST/UI-Page fold + pre-scan | 2nd skill; folds; size tiers | ✅ Complete, live |
+| 4 — Orchestrator | Subflow + orchestrator; validated on AssetFlow + Novel Jewels | ✅ Complete |
+| 5 — Async + navigation | Queue + Code Review Worker; app menu | ✅ Complete |
+| 6 — Reporting | Dashboards (built in the ServiceNow UI) | ◻️ UI activity |
+| 7 — Hardening | Noise/cost controls, `GlideRecordSecure` readability follow-up, findings-driven mode | ◻️ Optional / open |
 
-**Phase 2 (Script Reviewer) — built and installed.** GenAI Skill + gather tool created and
-component-tested. Configuration: provider `Now LLM Service` / `llm_generic_large_v2`, invoke and
-execute restricted to `admin`, deployed as a **Flow Action** for the Phase 4 orchestrator.
-
-Open items carried forward (see `docs/TestResult.md`):
-- **Publish + activate** the skill in Skill Builder — required before the Flow Action is generated.
-- Declare an explicit cross-scope privilege for the `GlideRecordSecure` API.
-- End-to-end LLM execution test of the skill still pending.
-
-**Phases 3–7 — not started:** remaining reviewer skills (UI Page, Scripted REST, then Flow/Action
-and Table), orchestrator Flow, trigger/surfacing, reporting, and hardening.
+**Known open items** (see `docs/TestResult.md`): findings written before the `maxLength` fix
+(Finding H) have text clipped to 40 chars — re-run affected apps for full text; occasional
+"artifact not found/not readable" rows from `GlideRecordSecure` ACLs are handled gracefully.
